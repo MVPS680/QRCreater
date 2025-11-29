@@ -12,8 +12,9 @@ import os
 from typing import Optional
 
 from .qrcode_generator import QRCodeGenerator
-from .qrcode_decoder import QRCodeDecoder
 from .utils import validate_file_path, get_default_file_name, handle_error
+
+# 延迟导入QRCodeDecoder，避免启动时加载pyzbar依赖
 
 
 class QRCodeGUI:
@@ -31,7 +32,7 @@ class QRCodeGUI:
         """
         self.root = root
         self.generator = QRCodeGenerator()
-        self.decoder = QRCodeDecoder()
+        self.decoder = None  # 延迟初始化，避免启动时加载pyzbar
         self.current_image = None
         self.decoded_results = []
         
@@ -49,7 +50,7 @@ class QRCodeGUI:
     
     def _setup_window(self) -> None:
         """配置窗口属性"""
-        self.root.title("QR码生成器 MVP&TraeSOLO")
+        self.root.title("QR码生成器-MVP")
         self.root.geometry("800x600")
         self.root.resizable(True, True)
         self.root.minsize(600, 500)
@@ -441,6 +442,11 @@ class QRCodeGUI:
         解码QR码并显示结果
         """
         try:
+            # 延迟初始化decoder，避免启动时加载pyzbar
+            if self.decoder is None:
+                from .qrcode_decoder import QRCodeDecoder
+                self.decoder = QRCodeDecoder()
+            
             method = self.decode_method_var.get()
             img = None
             
