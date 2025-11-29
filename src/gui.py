@@ -12,6 +12,7 @@ import os
 from typing import Optional
 
 from .qrcode_generator import QRCodeGenerator
+from .qrcode_decoder import QRCodeDecoder
 from .utils import validate_file_path, get_default_file_name, handle_error
 
 
@@ -30,7 +31,9 @@ class QRCodeGUI:
         """
         self.root = root
         self.generator = QRCodeGenerator()
+        self.decoder = QRCodeDecoder()
         self.current_image = None
+        self.decoded_results = []
         
         # 配置窗口
         self._setup_window()
@@ -67,8 +70,15 @@ class QRCodeGUI:
         # 主框架
         self.main_frame = ttk.Frame(self.root, padding="10")
         
-        # 左侧控制面板
-        self.control_panel = ttk.LabelFrame(self.main_frame, text="控制面板", padding="10")
+        # 创建标签页控件
+        self.tab_control = ttk.Notebook(self.main_frame)
+        
+        # ------------------------ 生成标签页 ------------------------
+        self.generate_tab = ttk.Frame(self.tab_control)
+        self.tab_control.add(self.generate_tab, text="生成")
+        
+        # 生成标签页的左侧控制面板
+        self.control_panel = ttk.LabelFrame(self.generate_tab, text="控制面板", padding="10")
         
         # 内容类型选择
         self.content_type_frame = ttk.Frame(self.control_panel)
@@ -147,8 +157,8 @@ class QRCodeGUI:
             command=self.generate_qr_code
         )
         
-        # 右侧预览面板
-        self.preview_panel = ttk.LabelFrame(self.main_frame, text="预览", padding="10")
+        # 生成标签页的右侧预览面板
+        self.preview_panel = ttk.LabelFrame(self.generate_tab, text="预览", padding="10")
         
         # 预览画布
         self.preview_canvas = tk.Canvas(self.preview_panel, width=300, height=300, bg="white")
@@ -161,12 +171,68 @@ class QRCodeGUI:
             command=self.save_qr_code
         )
         self.save_button.pack(pady=(10, 0))
+        
+        # ------------------------ 解码标签页 ------------------------
+        self.decode_tab = ttk.Frame(self.tab_control)
+        self.tab_control.add(self.decode_tab, text="解码")
+        
+        # 解码标签页的左侧控制面板
+        self.decode_control_panel = ttk.LabelFrame(self.decode_tab, text="解码选项", padding="10")
+        
+        # 解码方式选择
+        self.decode_method_frame = ttk.Frame(self.decode_control_panel)
+        ttk.Label(self.decode_method_frame, text="解码方式:").pack(side=tk.LEFT, padx=(0, 10))
+        self.decode_method_var = tk.StringVar(value="file")
+        self.decode_method_combobox = ttk.Combobox(
+            self.decode_method_frame,
+            textvariable=self.decode_method_var,
+            values=["file", "url"],
+            state="readonly"
+        )
+        self.decode_method_combobox.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        
+        # 文件选择区域
+        self.file_select_frame = ttk.Frame(self.decode_control_panel)
+        self.file_path_var = tk.StringVar()
+        self.file_entry = ttk.Entry(self.file_select_frame, textvariable=self.file_path_var, state="readonly")
+        self.file_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
+        self.browse_button = ttk.Button(self.file_select_frame, text="浏览", command=self.browse_file)
+        self.browse_button.pack(side=tk.LEFT)
+        
+        # URL输入区域
+        self.url_frame = ttk.Frame(self.decode_control_panel)
+        self.url_var = tk.StringVar()
+        self.url_entry = ttk.Entry(self.url_frame, textvariable=self.url_var)
+        self.url_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
+        self.url_entry.pack_forget()  # 初始隐藏
+        
+        # 解码按钮
+        self.decode_button = ttk.Button(
+            self.decode_control_panel,
+            text="解码QR码",
+            command=self.decode_qr_code
+        )
+        
+        # 解码标签页的右侧结果面板
+        self.decode_result_panel = ttk.LabelFrame(self.decode_tab, text="结果", padding="10")
+        
+        # 解码预览画布
+        self.decode_preview_canvas = tk.Canvas(self.decode_result_panel, width=300, height=300, bg="white")
+        self.decode_preview_canvas.pack(fill=tk.BOTH, expand=True)
+        
+        # 解码结果文本框
+        self.result_text = tk.Text(self.decode_result_panel, height=10, width=40, state="disabled")
+        self.result_text.pack(fill=tk.BOTH, expand=True, pady=(10, 0))
     
     def _layout_widgets(self) -> None:
         """布局界面组件"""
         # 主框架布局
         self.main_frame.pack(fill=tk.BOTH, expand=True)
         
+        # 标签页布局
+        self.tab_control.pack(fill=tk.BOTH, expand=True)
+        
+        # ------------------------ 生成标签页布局 ------------------------
         # 左侧控制面板布局
         self.control_panel.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 10))
         
@@ -188,9 +254,29 @@ class QRCodeGUI:
         
         # 右侧预览面板布局
         self.preview_panel.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
+        
+        # ------------------------ 解码标签页布局 ------------------------
+        # 左侧解码控制面板布局
+        self.decode_control_panel.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 10))
+        
+        # 解码方式布局
+        self.decode_method_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        # 文件选择布局
+        self.file_select_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        # URL输入布局
+        self.url_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        # 解码按钮布局
+        self.decode_button.pack(fill=tk.X)
+        
+        # 右侧结果面板布局
+        self.decode_result_panel.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
     
     def _bind_events(self) -> None:
         """绑定事件"""
+        # 生成标签页事件绑定
         # 内容变化时自动生成
         self.content_text.bind("<KeyRelease>", self._on_content_change)
         
@@ -203,6 +289,10 @@ class QRCodeGUI:
         
         # 回车键生成
         self.content_text.bind("<Control-Return>", lambda e: self.generate_qr_code())
+        
+        # 解码标签页事件绑定
+        # 解码方式变化时切换界面
+        self.decode_method_var.trace_add("write", self._on_decode_method_change)
     
     def _on_content_change(self, event: tk.Event) -> None:
         """内容变化事件处理"""
@@ -317,6 +407,142 @@ class QRCodeGUI:
         except Exception as e:
             handle_error(e, "保存QR码")
             messagebox.showerror("错误", f"保存QR码失败: {e}")
+    
+    def _on_decode_method_change(self, *args) -> None:
+        """
+        解码方式变化事件处理
+        """
+        method = self.decode_method_var.get()
+        if method == "file":
+            # 显示文件选择区域，隐藏URL输入区域
+            self.file_select_frame.pack(fill=tk.X, pady=(0, 10))
+            self.url_frame.pack_forget()
+        else:
+            # 显示URL输入区域，隐藏文件选择区域
+            self.url_frame.pack(fill=tk.X, pady=(0, 10))
+            self.file_select_frame.pack_forget()
+    
+    def browse_file(self) -> None:
+        """
+        浏览文件并选择要解码的图片
+        """
+        file_path = filedialog.askopenfilename(
+            filetypes=[
+                ("图片文件", "*.png;*.jpg;*.jpeg;*.bmp;*.gif"),
+                ("所有文件", "*.*")
+            ],
+            title="选择要解码的QR码图片"
+        )
+        if file_path:
+            self.file_path_var.set(file_path)
+    
+    def decode_qr_code(self) -> None:
+        """
+        解码QR码并显示结果
+        """
+        try:
+            method = self.decode_method_var.get()
+            img = None
+            
+            # 根据解码方式获取图片
+            if method == "file":
+                file_path = self.file_path_var.get()
+                if not file_path:
+                    messagebox.showwarning("警告", "请先选择要解码的图片文件")
+                    return
+                
+                # 解码本地文件
+                results = self.decoder.decode_from_file(file_path)
+                img = Image.open(file_path)
+            else:
+                url = self.url_var.get().strip()
+                if not url:
+                    messagebox.showwarning("警告", "请先输入图片URL")
+                    return
+                
+                # 解码网络图片
+                results = self.decoder.decode_from_url(url)
+                
+                # 获取图片用于预览
+                import requests
+                from io import BytesIO
+                response = requests.get(url, timeout=10)
+                response.raise_for_status()
+                img = Image.open(BytesIO(response.content))
+            
+            # 显示预览
+            self._update_decode_preview(img)
+            
+            # 显示解码结果
+            self._display_decode_results(results)
+            
+        except Exception as e:
+            handle_error(e, "解码QR码")
+            messagebox.showerror("错误", f"解码失败: {e}")
+            self._clear_decode_preview()
+            self._display_decode_results([])
+    
+    def _update_decode_preview(self, img: Image.Image) -> None:
+        """
+        更新解码预览显示
+        
+        Args:
+            img: 要显示的图片
+        """
+        # 保存当前图片
+        self.current_image = img
+        
+        # 获取画布尺寸
+        canvas_width = self.decode_preview_canvas.winfo_width()
+        canvas_height = self.decode_preview_canvas.winfo_height()
+        
+        # 调整图像大小以适应画布
+        img_copy = img.copy()
+        img_copy.thumbnail((canvas_width, canvas_height), Image.Resampling.LANCZOS)
+        
+        # 转换为PhotoImage
+        self.decode_photo = ImageTk.PhotoImage(img_copy)
+        
+        # 清除画布并显示图像
+        self.decode_preview_canvas.delete("all")
+        
+        # 计算居中位置
+        x = (canvas_width - self.decode_photo.width()) // 2
+        y = (canvas_height - self.decode_photo.height()) // 2
+        
+        # 显示图像
+        self.decode_preview_canvas.create_image(x, y, anchor=tk.NW, image=self.decode_photo)
+    
+    def _clear_decode_preview(self) -> None:
+        """
+        清除解码预览
+        """
+        self.decode_preview_canvas.delete("all")
+        self.current_image = None
+    
+    def _display_decode_results(self, results: list) -> None:
+        """
+        显示解码结果
+        
+        Args:
+            results: 解码结果列表
+        """
+        # 清空结果文本框
+        self.result_text.config(state="normal")
+        self.result_text.delete("1.0", tk.END)
+        
+        if not results:
+            self.result_text.insert(tk.END, "未检测到QR码")
+        else:
+            self.result_text.insert(tk.END, f"检测到 {len(results)} 个QR码:\n\n")
+            
+            for i, result in enumerate(results, 1):
+                self.result_text.insert(tk.END, f"=== 结果 {i} ===\n")
+                self.result_text.insert(tk.END, f"类型: {result['type']}\n")
+                self.result_text.insert(tk.END, f"数据: {result['data']}\n")
+                self.result_text.insert(tk.END, "\n")
+        
+        self.result_text.config(state="disabled")
     
     def run(self) -> None:
         """运行GUI程序"""

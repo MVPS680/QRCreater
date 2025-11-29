@@ -28,7 +28,7 @@
 ### 1. 克隆或下载项目
 
 ```bash
-git clone https://github.com/yourusername/qrcode-generator.git
+git clone https://github.com/MVPS680/QRCreater.git
 cd qrcode-generator
 ```
 
@@ -132,7 +132,7 @@ MIT License
 
 如有问题或建议，请通过以下方式联系：
 
-- GitHub Issues：https://github.com/yourusername/qrcode-generator/issues
+- GitHub Issues：https://github.com/MVPS680/QRCreater/issues
 
 ---
 
