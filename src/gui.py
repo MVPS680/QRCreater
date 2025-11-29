@@ -205,7 +205,7 @@ class QRCodeGUI:
         self.url_var = tk.StringVar()
         self.url_entry = ttk.Entry(self.url_frame, textvariable=self.url_var)
         self.url_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
-        self.url_entry.pack_forget()  # 初始隐藏
+        self.url_frame.pack_forget()  # 初始隐藏整个URL框架
         
         # 解码按钮
         self.decode_button = ttk.Button(
